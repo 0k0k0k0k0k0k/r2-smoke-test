@@ -10,13 +10,44 @@ required_r2_variables <- c(
   "R2_OBJECT"
 )
 
+redact_diagnostic_message <- function(value, sensitive_values) {
+  tryCatch({
+    text <- as.character(value)[[1]]
+    if (is.na(text)) text <- "unavailable"
+
+    for (sensitive_value in unique(sensitive_values[nzchar(sensitive_values)])) {
+      text <- gsub(sensitive_value, "[REDACTED]", text, fixed = TRUE)
+    }
+
+    text <- gsub(
+      "(?i)(https?|s3|r2)://[^[:space:]'\"`]+",
+      "[REDACTED_URL]",
+      text,
+      perl = TRUE
+    )
+    text <- gsub("'([^']|'')*'", "'[REDACTED]'", text, perl = TRUE)
+    text <- gsub(
+      "\\b[A-Za-z0-9_+/=-]{24,}\\b",
+      "[REDACTED_TOKEN]",
+      text,
+      perl = TRUE
+    )
+    text <- gsub("[[:space:]]+", " ", text)
+    substr(text, 1L, 400L)
+  }, error = function(error) {
+    "unavailable"
+  })
+}
+
 run_r2_smoke_test <- function() {
   stage <- new.env(parent = emptyenv())
   stage$label <- "reading required settings"
+  redaction_values <- character()
 
   tryCatch({
   r2_values <- Sys.getenv(required_r2_variables, unset = "")
   names(r2_values) <- required_r2_variables
+  redaction_values <- r2_values
 
   if (any(!nzchar(r2_values))) {
     stop("Required R2 settings are missing.")
@@ -241,6 +272,16 @@ run_r2_smoke_test <- function() {
     benchmark_results = benchmark_results
   )
   }, error = function(error) {
+    diagnostic_message <- redact_diagnostic_message(
+      conditionMessage(error),
+      redaction_values
+    )
+    message(
+      "R2_SMOKE_DIAGNOSTIC ",
+      "stage=", stage$label,
+      " class=", paste(class(error), collapse = ","),
+      " message=", diagnostic_message
+    )
     list(ok = FALSE, failed_stage = stage$label)
   })
 }
