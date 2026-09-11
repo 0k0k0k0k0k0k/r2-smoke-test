@@ -287,10 +287,26 @@ run_r2_smoke_test <- function() {
   })
 }
 
-smoke_result <- run_r2_smoke_test()
+smoke_result <- NULL
+smoke_result_ready <- reactiveVal(FALSE)
 
 ui <- fluidPage(
   titlePanel("Remote database connection and Explorer query test"),
+  uiOutput("smoke_status")
+)
+
+server <- function(input, output, session) {
+  session$onFlushed(function() {
+    if (!isTRUE(isolate(smoke_result_ready()))) {
+      smoke_result <<- run_r2_smoke_test()
+      smoke_result_ready(TRUE)
+    }
+  }, once = TRUE)
+
+  output$smoke_status <- renderUI({
+    if (!isTRUE(smoke_result_ready())) {
+      return(p("Loading connection test."))
+    }
   if (isTRUE(smoke_result$ok)) {
     benchmark_line <- function(label, result) {
       tags$li(sprintf(
@@ -327,8 +343,7 @@ ui <- fluidPage(
       p("No database contents or connection details are shown on this page.")
     )
   }
-)
-
-server <- function(input, output, session) {}
+  })
+}
 
 shinyApp(ui, server)
