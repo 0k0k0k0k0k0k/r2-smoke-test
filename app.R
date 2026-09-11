@@ -169,7 +169,7 @@ run_r2_smoke_test <- function() {
       benchmark_year_max,
       "-12-31'"
     ),
-    collapse = " AND "
+    sep = " AND "
   )
   property_where <- paste(
     statewide_where,
