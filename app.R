@@ -130,6 +130,7 @@ run_r2_smoke_test <- function() {
   if (is.null(benchmark_taxon_id) || !nzchar(benchmark_taxon_id)) {
     stop("No benchmark taxon is available.")
   }
+  redaction_values <- c(redaction_values, benchmark_taxon_id)
 
   stage$label <- "finding the database date limits"
   date_limits <- DBI::dbGetQuery(
